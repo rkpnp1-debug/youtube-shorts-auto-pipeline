@@ -17,16 +17,20 @@ export async function runReachAgents(input: {
   notes?: string;
   filename: string;
 }): Promise<AgentOutput> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is required for AI agents');
+  }
+
   const system = `You are an elite YouTube Shorts growth agent.
 Your job is to maximize reach, retention and algorithm performance for short-form vertical videos.
 
 Rules:
-- Titles: 40-70 characters, curiosity + emotion + keyword, no clickbait that misleads
+- Titles: 40-70 characters, curiosity + emotion + keyword, no misleading clickbait
 - Description: 2-3 short paragraphs + strong CTA + relevant keywords
-- Hashtags: 8-12 mix of high-volume + niche + branded. Always include #Shorts
+- Hashtags: 8-12 mix of high-volume + niche. Always include #Shorts
 - Hook: the first 3-second spoken or on-screen text that stops the scroll
 
-Return ONLY valid JSON with keys: title, description, hashtags (array), hook.`;
+Return ONLY valid JSON with keys: title, description, hashtags (array of strings), hook.`;
 
   const user = `Create optimized metadata for this Shorts video.
 
@@ -47,12 +51,19 @@ Generate the best possible title, description, hashtags and hook.`;
   });
 
   const raw = completion.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(raw);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = {};
+  }
 
   return {
-    title: parsed.title || input.workingTitle || 'Untitled Short',
+    title: (parsed.title || input.workingTitle || 'Untitled Short').slice(0, 100),
     description: parsed.description || '',
-    hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : ['#Shorts'],
+    hashtags: Array.isArray(parsed.hashtags)
+      ? parsed.hashtags.map(String)
+      : ['#Shorts'],
     hook: parsed.hook || '',
   };
 }

@@ -1,91 +1,100 @@
 # YouTube Shorts Auto Pipeline
 
-Automated daily pipeline that:
-1. Lets you upload videos into a pool
-2. Daily picks a video via GitHub Actions cron
-3. Uses AI agents to generate high-reach titles, descriptions, hashtags & hooks
-4. Uploads to YouTube Shorts (YouTube Data API v3)
-5. Runs every day automatically
+Automated daily pipeline that picks videos from a folder on your computer (or a web upload pool), uses AI agents to generate high-reach titles/descriptions/hashtags, and uploads them as YouTube Shorts.
 
-**Stack:** Next.js (Vercel) + GitHub Actions + OpenAI (or any LLM) + YouTube API
+## How video picking works now
 
-## Quick Start
+**Primary source = your local folder**
 
-### 1. Clone & Install
+By default on Windows it looks in:
+
+```
+C:\\Users\\<YourWindowsUsername>\\Downloads
+```
+
+You can change it with the environment variable:
+
+```env
+VIDEO_POOL_PATH=C:\\Users\\YourName\\Downloads
+```
+
+or any other folder you want (e.g. `C:\\Videos\\ToUpload`).
+
+The script:
+1. Scans the folder for `.mp4`, `.mov`, `.mkv`, `.webm`, `.avi`, `.m4v`
+2. Picks the **oldest** video that has not been uploaded yet
+3. Runs AI agents
+4. Uploads to YouTube Shorts
+5. Remembers it so it never uploads the same file twice
+
+## Quick Start (Windows)
+
+### 1. Clone
 ```bash
 git clone https://github.com/rkpnp1-debug/youtube-shorts-auto-pipeline.git
 cd youtube-shorts-auto-pipeline
 npm install
 ```
 
-### 2. Environment Variables
-Copy `.env.example` → `.env.local` and fill:
+### 2. Create `.env` file
+Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-# OpenAI (or compatible) for AI agents
 OPENAI_API_KEY=sk-...
-
-# YouTube Data API v3
 YOUTUBE_CLIENT_ID=...
 YOUTUBE_CLIENT_SECRET=...
 YOUTUBE_REFRESH_TOKEN=...
 
-# Optional: better video storage (Cloudflare R2 / S3)
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=youtube-shorts-pool
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Point this to your Downloads (or any folder)
+VIDEO_POOL_PATH=C:\\Users\\YourName\\Downloads
 ```
 
-### 3. Run locally
+### 3. Run once (test)
+```bash
+npm run cron:daily
+```
+
+It will pick the oldest unused video from the folder and upload it.
+
+### 4. Schedule it every day
+
+**Option A – Windows Task Scheduler (recommended for local folder)**
+1. Open Task Scheduler
+2. Create Basic Task → Daily → 9:00 AM
+3. Action: Start a program
+4. Program: `node`
+5. Arguments: `scripts/daily-upload.ts` (or use `npx tsx scripts/daily-upload.ts`)
+6. Start in: the project folder
+
+**Option B – GitHub Actions** (only works if videos are in the repo or cloud storage)
+The workflow `.github/workflows/daily-upload.yml` is already there.
+You still need to put videos somewhere the runner can reach (S3/R2 recommended).
+
+## Web Dashboard (optional)
+
 ```bash
 npm run dev
 ```
 
-### 4. Deploy to Vercel
-- Push this repo to GitHub (already done)
-- Import project in Vercel
-- Add the same env vars in Vercel dashboard
-- Deploy
+- `/` – Dashboard
+- `/upload` – Upload extra videos (stored in `public/pool`)
+- `/queue` – See status of all processed videos
 
-### 5. Enable Daily Cron
-GitHub Actions workflow (`.github/workflows/daily-upload.yml`) runs every day at 09:00 UTC.
-It will:
-- Pick the oldest unprocessed video from the pool
-- Run AI agents for title / description / hashtags
-- Upload to YouTube Shorts
-- Mark as processed
+## Required API keys
 
-## How the Agents Work
+| Key | Where to get it |
+|-----|-----------------|
+| `OPENAI_API_KEY` | platform.openai.com |
+| `YOUTUBE_CLIENT_ID` + `SECRET` + `REFRESH_TOKEN` | Google Cloud Console → YouTube Data API v3 |
 
-1. **Title Agent** – Creates scroll-stopping titles optimized for Shorts algorithm
-2. **Description Agent** – Writes SEO-rich descriptions with CTAs
-3. **Hashtag Agent** – Picks high-volume + niche hashtags
-4. **Hook Agent** – Suggests first 3-second hook text (you can burn it into video later)
+Need the exact script to generate the YouTube refresh token? Just ask.
 
-## Video Pool
+## Reach tactics included
 
-- Upload via the web dashboard (`/upload`)
-- Videos are stored in `/public/pool` locally or R2/S3 in production
-- Metadata (title suggestions, status) is stored in a simple JSON DB or you can swap to Postgres/Supabase
-
-## Reach Tactics Built-in
-
-- Algorithm-friendly titles (curiosity + emotion + keywords)
-- Trending + evergreen hashtags mix
-- Strong CTAs in description
-- Optimal posting time (cron configurable)
-- Vertical 9:16 ready
-
-## Next Steps / Customization
-
-- Add more platforms (TikTok, Instagram Reels) via their APIs
-- Connect real AI video editing (e.g. Runway, CapCut API)
-- Add analytics feedback loop so agents learn what performs
-- Use a real DB (Supabase / PlanetScale)
+- Curiosity + emotion titles
+- SEO-rich descriptions with CTA
+- Mix of high-volume + niche hashtags
+- Strong 3-second hook suggestion
 
 ## License
 MIT
